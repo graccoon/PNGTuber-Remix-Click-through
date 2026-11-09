@@ -1,0 +1,14 @@
+{
+	"enabled_classes": [
+		"ClassDBSingleton",
+		"EditorPlugin",
+		"FileAccess",
+		"Image",
+		"Mutex",
+		"Object",
+		"OS",
+		"RefCounted",
+		"WorkerThreadPool",
+		"XMLParser"
+	]
+}

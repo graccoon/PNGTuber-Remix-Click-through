@@ -1,0 +1,128 @@
+[gd_scene format=3 uid="uid://cb6sos2p8qbrr"]
+
+[ext_resource type="PackedScene" uid="uid://byqy3gmm478yp" path="res://Misc/BaseObject/base_object.tscn" id="1_31wc5"]
+[ext_resource type="Script" uid="uid://cpxma1104nmwe" path="res://Scripts/Objects/append_object.gd" id="1_yuqos"]
+[ext_resource type="Texture2D" uid="uid://cppqjhaoi70l5" path="res://Misc/EasyBlend/Blends/add.png" id="2_2g5n2"]
+[ext_resource type="Shader" uid="uid://c8aq5jfqgs2ro" path="res://Scripts/Shaders/SpriteShader.gdshader" id="3_p6byp"]
+[ext_resource type="Script" uid="uid://yihxjoi1vtu5" path="res://addons/wiggly_appendage_2d/wiggly_appendage_2d.gd" id="4_e6x1l"]
+[ext_resource type="Texture2D" uid="uid://dajiyes440dqd" path="res://Misc/TestAssets/tail - Copy.png" id="5_mwqm8"]
+[ext_resource type="Shader" uid="uid://di5vad1bc51ed" path="res://Scripts/Shaders/SpriteSelectionWA.gdshader" id="8_cwgos"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_lijf4"]
+resource_local_to_scene = true
+shader = ExtResource("3_p6byp")
+shader_parameter/enabled = false
+shader_parameter/Blend = ExtResource("2_2g5n2")
+shader_parameter/Intensity = 1.0
+shader_parameter/wiggle = true
+shader_parameter/rotation = 0.0
+shader_parameter/rotation_offset = Vector2(0.5, 0.5)
+
+[sub_resource type="CanvasTexture" id="CanvasTexture_6684t"]
+diffuse_texture = ExtResource("5_mwqm8")
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_31wc5"]
+resource_local_to_scene = true
+
+[sub_resource type="Gradient" id="Gradient_31wc5"]
+offsets = PackedFloat32Array(0)
+colors = PackedColorArray(0, 0, 0, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_wmc63"]
+gradient = SubResource("Gradient_31wc5")
+width = 120
+height = 120
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_2s2ie"]
+shader = ExtResource("8_cwgos")
+shader_parameter/ant_color_1 = Color(1, 1, 1, 1)
+shader_parameter/ant_color_2 = Color(0, 0, 0, 1)
+shader_parameter/ant_width = 1.5
+shader_parameter/ant_length = 10.0
+shader_parameter/ant_speed = 30.0
+
+[sub_resource type="Gradient" id="Gradient_lijf4"]
+offsets = PackedFloat32Array(0)
+colors = PackedColorArray(0, 0, 0, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_i82gq"]
+gradient = SubResource("Gradient_lijf4")
+
+[node name="SpriteObject" unique_id=468878790 node_paths=PackedStringArray("sprite_object", "grab_object", "static_collision") instance=ExtResource("1_31wc5")]
+script = ExtResource("1_yuqos")
+sprite_object = NodePath("Modifier1/Rotation/Modifier/Sprite2D")
+grab_object = NodePath("Modifier1/Rotation/Modifier/Sprite2D/Grab")
+static_collision = NodePath("Modifier1/Rotation/Modifier/Sprite2D/HitDetection/Coll")
+
+[node name="Sprite2D" type="Line2D" parent="Modifier1/Rotation/Modifier" parent_id_path=PackedInt32Array(2094774544) index="1" unique_id=290325673 node_paths=PackedStringArray("actor")]
+unique_name_in_owner = true
+physics_interpolation_mode = 1
+material = SubResource("ShaderMaterial_lijf4")
+points = PackedVector2Array(0, 0, 27.36, -1.5537884e-05, 51.84, -6.2151536e-05, 73.44, -0.00013984097, 92.16, -0.00024860614, 108, -0.00038844708, 122.399994, -0.0006788331, 136.8, -0.0012392337, 151.20001, -0.0020696488, 165.6, -0.0031700782, 180, -0.0045405217, 194.4, -0.0058629597, 208.79999, -0.0068193716, 223.20001, -0.007409757, 237.6, -0.0076341163, 252, -0.007492449, 266.40002, -0.006542098, 280.8, -0.004340404, 295.2, -0.00088736834, 309.59998, 0.0038170083, 324, 0.009772728, 338.40002, 0.01697979, 352.8, 0.025438193)
+texture = SubResource("CanvasTexture_6684t")
+texture_mode = 2
+script = ExtResource("4_e6x1l")
+actor = NodePath("../../../..")
+segment_length = 72.0
+max_angle = 0.523599
+comeback_speed = 0.419
+stiffness_decay_exponent = 5.0
+max_angular_momentum = 20.0
+subdivision = 5
+
+[node name="HitDetection" type="StaticBody2D" parent="Modifier1/Rotation/Modifier/Sprite2D" index="0" unique_id=711491270]
+unique_name_in_owner = true
+collision_layer = 0
+collision_mask = 2
+
+[node name="Coll" type="CollisionShape2D" parent="Modifier1/Rotation/Modifier/Sprite2D/HitDetection" index="0" unique_id=941113458]
+shape = SubResource("CircleShape2D_31wc5")
+disabled = true
+
+[node name="Grab" type="TextureButton" parent="Modifier1/Rotation/Modifier/Sprite2D" index="1" unique_id=1348424283]
+unique_name_in_owner = true
+z_index = 4096
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -60.0
+offset_top = -60.0
+offset_right = 60.0
+offset_bottom = 60.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 1
+texture_normal = SubResource("GradientTexture2D_wmc63")
+
+[node name="Selection" type="TextureRect" parent="Modifier1/Rotation/Modifier/Sprite2D/Grab" index="0" unique_id=424484525]
+unique_name_in_owner = true
+visible = false
+z_index = 4096
+z_as_relative = false
+material = SubResource("ShaderMaterial_2s2ie")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("GradientTexture2D_i82gq")
+expand_mode = 1
+
+[node name="FollowPosition" parent="." index="3" unique_id=910203176 node_paths=PackedStringArray("actor")]
+actor = NodePath("..")
+
+[node name="FollowRotation" parent="." index="4" unique_id=1123989327 node_paths=PackedStringArray("actor")]
+actor = NodePath("..")
+
+[node name="FollowScale" parent="." index="5" unique_id=1127925180 node_paths=PackedStringArray("actor")]
+actor = NodePath("..")
+
+[node name="Movements" parent="." index="7" unique_id=941197373 node_paths=PackedStringArray("actor")]
+actor = NodePath("..")
+
+[node name="AnimatedSpriteTexture" parent="." index="8" unique_id=1705399464 node_paths=PackedStringArray("sprite_node")]
+sprite_node = NodePath("../Modifier1/Rotation/Modifier/Sprite2D")

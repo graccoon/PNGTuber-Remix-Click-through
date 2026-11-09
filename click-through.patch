@@ -1,0 +1,484 @@
+diff --git a/Localization/translations.csv b/Localization/translations.csv
+index 4dfa9c2..151ebb9 100644
+--- a/Localization/translations.csv
++++ b/Localization/translations.csv
+@@ -587,4 +587,9 @@ EXPORT_SPRITES,Export Sprite(s),Экспортировать спрайты
+ TR_PHYS_EFF,Physics Effect,Physics Effect
+ TR_DISTANCE,Distance,Расстояние
+ TR_DEGREE,Degree,Градус
+-TR_THROW_FORCE,Throw Force,Сила броска
+\ No newline at end of file
++TR_THROW_FORCE,Throw Force,Сила броска
++TR_CLICK_THROUGH,Click-through,Сквозные клики
++TR_CLICK_THROUGH_HOTKEY,Click-through Hotkey,Хоткей сквозных кликов
++TR_CLICK_THROUGH_HOTKEY_TOOLTIP,"Global hotkey that turns click-through on and off. Works while the window is not focused. The tray icon also toggles it.","Глобальная горячая клавиша, которая включает и выключает сквозные клики. Работает, когда окно не в фокусе. Переключить режим также можно кликом по иконке в трее."
++TR_CLICK_THROUGH_HOTKEY_RESET,Reset,Сбросить
++TR_CLICK_THROUGH_NEEDS_MODIFIER,"Add Ctrl, Alt or Shift","Добавьте Ctrl, Alt или Shift"
+diff --git a/SESSION_NOTES.md b/SESSION_NOTES.md
+new file mode 100644
+index 0000000..beeef14
+--- /dev/null
++++ b/SESSION_NOTES.md
+@@ -0,0 +1,58 @@
++# Сессия: click-through (overlay) режим для PNGTuber-Remix 1.4.x
++
++## Задача
++Режим, в котором окно остаётся поверх всех окон, без рамок и с прозрачным фоном, а мышь
++«проходит» сквозь него в другие приложения (как overlay в PureRef). Горячая клавиша для
++выхода из режима должна настраиваться в настройках.
++
++## Что уже было в проекте
++- `Scripts/AutoLoads/Settings.gd`: `toggle_borders()` (Alt+Enter) и `set_always_on_top()`.
++  Оба состояния сохраняются в `theme_settings` и восстанавливаются при запуске.
++- Прозрачность включена в `project.godot` (`per_pixel_transparency`, `size/transparent`).
++- Фон «Transparent» и режим Preview скрывают интерфейс редактора.
++- `GlobInput` (GDExtension, libuiohook) ловит клавиши вне фокуса. В этой сборке у него есть
++  `is_action_just_pressed(имя)`, `is_key_pressed`, `start_hook`, `stop_hook`, свойство `backend`.
++- `toggle_borders` обрабатывается через `Input` в `_input`, то есть работает только при фокусе.
++  Для выхода из click-through он не годится.
++
++## Что сделано
++| Файл | Изменение |
++|---|---|
++| `Scripts/AutoLoads/overlay_mode.gd` (новый) | Автозагрузка `OverlayMode`: флаг `Window.FLAG_MOUSE_PASSTHROUGH`, глобальный хоткей через `GlobInput`, иконка в трее (`StatusIndicator`), хранение хоткея в `theme_settings["click_through_hotkey"]` |
++| `Scripts/UI/TopPanel/Components/click_through_hotkey_row.gd` (новый) | Строка настроек: показ, переназначение и сброс хоткея |
++| `project.godot` | Автозагрузка `OverlayMode` |
++| `UI/EditorUI/TopUI/Components/Settings_popup.tscn` | Строка «Click-through Hotkey» на вкладке Remix |
++| `UI/EditorUI/TopUI/top_ui.tscn`, `Scripts/UI/TopPanel/TopBarInput.gd` | Пункт «Click-through» в меню Window редактора |
++| `UI/StreamUI/StreamTopUI.tscn`, `Scripts/UI/StreamUI/s_top_ui_scripts.gd` | Тот же пункт в меню стрим-режима |
++| `Localization/translations.csv` | Строки `TR_CLICK_THROUGH*` (en, ru) |
++
++## Ключевые решения
++- Хоткей по умолчанию: Ctrl+Alt+F10. Настраивается в Settings > Remix. Без модификатора
++  принимаются только F-клавиши и другие «специальные» клавиши, чтобы буква не включала режим при наборе текста.
++- Состояние click-through **не сохраняется**: приложение всегда стартует с обычной мышью.
++- Режим не включится, если нет ни одного пути выхода: нужен либо рабочий `GlobInput`
++  (`backend != "dummy"`), либо иконка в трее.
++- Реальное состояние окна читается обратно через `get_flag`, а не предполагается.
++- Во время переназначения хоткея глобальный опрос приостанавливается (`OverlayMode.capturing`).
++- `Settings.gd` не менялся. Хоткей пишется в тот же файл настроек через `Settings.save()`.
++
++## Как проверено
++- Godot 4.7.2 headless: проект запускается, ошибок скриптов в новых файлах нет.
++- Тест логики (24 проверки): хоткей по умолчанию, переназначение, сохранение в настройки,
++  отказ от голой буквы, Escape, сброс, закрытие окна во время ввода, наличие пункта меню в обоих UI.
++- **Не проверено** (нужен ваш запуск на Windows): сам click-through, глобальный хоткей вне
++  фокуса, иконка в трее, комбинация с always on top и без рамок.
++
++## Что проверить руками
++1. Preview-режим + фон Transparent + Always on top + Toggle borders, затем «Click-through» в меню Window.
++2. Клики идут в приложения под окном, хоткей и клик по иконке в трее возвращают мышь.
++3. Settings > Remix > Click-through Hotkey: смена комбинации работает сразу и сохраняется после перезапуска.
++4. После изменения `translations.csv` откройте проект в редакторе Godot, чтобы он переимпортировал переводы.
++
++## Замечания и риски
++- На Linux/Wayland глобальный ввод и passthrough ненадёжны, режим там может не включиться.
++- Если флаг `FLAG_MOUSE_PASSTHROUGH` на вашей системе не сработает, запасной вариант:
++  `Window.mouse_passthrough_polygon` с маленьким полигоном вне видимой области.
++- Возможная связь со старым багом «прозрачная рамка»: `toggle_borders()` после смены флага
++  ставит размер из `theme_settings.screen_size`, а он обновляется только при «Save window positions».
++  Не доказано и в этой сессии не менялось.
+diff --git a/Scripts/AutoLoads/overlay_mode.gd b/Scripts/AutoLoads/overlay_mode.gd
+new file mode 100644
+index 0000000..3b2110a
+--- /dev/null
++++ b/Scripts/AutoLoads/overlay_mode.gd
+@@ -0,0 +1,140 @@
++extends Node
++## Click-through ("overlay") mode for the main window.
++##
++## While enabled, every mouse click goes to whatever is below the window.
++## The window itself can no longer be clicked, so there are always two ways out:
++##   1. a global hotkey (works while the window is not focused, via GlobInput),
++##   2. a click on the system tray icon.
++## The state is intentionally NOT saved: the app always starts with a normal mouse.
++
++signal click_through_changed(enabled: bool)
++
++const ACTION := "toggle_click_through"
++const SETTINGS_KEY := "click_through_hotkey"
++const DEFAULT_HOTKEY := {
++	"keycode": KEY_F10,
++	"ctrl": true,
++	"alt": true,
++	"shift": false,
++	"meta": false,
++}
++
++var enabled: bool = false
++## Set by the hotkey settings button while it waits for a key, so that the
++## currently bound hotkey does not toggle the mode in the middle of rebinding.
++var capturing: bool = false
++
++var _tray: StatusIndicator = null
++var _tray_available: bool = false
++
++
++func _ready() -> void:
++	process_mode = Node.PROCESS_MODE_ALWAYS
++	# Default binding right away, the saved one is applied once Settings has loaded.
++	apply_hotkey()
++	_setup_tray()
++	# Settings.gd waits 0.1 s before it reads the settings file.
++	await get_tree().create_timer(0.3).timeout
++	apply_hotkey()
++
++
++func _process(_delta: float) -> void:
++	if capturing:
++		return
++	if GlobInput.is_action_just_pressed(ACTION):
++		toggle()
++
++
++# --- Click-through ---------------------------------------------------------
++
++func toggle() -> void:
++	set_click_through(not enabled)
++
++
++## Returns true if the window ended up in the requested state.
++func set_click_through(on: bool) -> bool:
++	if on and not has_exit_path():
++		push_warning("OverlayMode: click-through refused, neither the global hotkey nor the tray icon is available.")
++		return false
++
++	var window := get_window()
++	window.set_flag(Window.FLAG_MOUSE_PASSTHROUGH, on)
++	# Read the real state back instead of assuming that the flag was applied.
++	var actual: bool = window.get_flag(Window.FLAG_MOUSE_PASSTHROUGH)
++	if actual != enabled:
++		enabled = actual
++		_update_tray()
++		click_through_changed.emit(enabled)
++	return actual == on
++
++
++## Click-through is only allowed when the user has a way back.
++func has_exit_path() -> bool:
++	var hotkey_ok := str(GlobInput.backend) != "dummy"
++	return _tray_available or hotkey_ok
++
++
++# --- Hotkey ------------------------------------------------------------------
++
++func get_hotkey() -> Dictionary:
++	var saved: Variant = Settings.theme_settings.get(SETTINGS_KEY)
++	if saved is Dictionary and int(saved.get("keycode", 0)) != 0:
++		return saved
++	return DEFAULT_HOTKEY.duplicate()
++
++
++func set_hotkey(hotkey: Dictionary) -> void:
++	Settings.theme_settings[SETTINGS_KEY] = hotkey
++	Settings.save()
++	apply_hotkey()
++
++
++func reset_hotkey() -> void:
++	set_hotkey(DEFAULT_HOTKEY.duplicate())
++
++
++func hotkey_to_event(hotkey: Dictionary) -> InputEventKey:
++	var event := InputEventKey.new()
++	event.keycode = int(hotkey.get("keycode", KEY_F10)) as Key
++	event.ctrl_pressed = bool(hotkey.get("ctrl", false))
++	event.alt_pressed = bool(hotkey.get("alt", false))
++	event.shift_pressed = bool(hotkey.get("shift", false))
++	event.meta_pressed = bool(hotkey.get("meta", false))
++	return event
++
++
++func hotkey_text(hotkey: Dictionary = get_hotkey()) -> String:
++	return OS.get_keycode_string(hotkey_to_event(hotkey).get_keycode_with_modifiers())
++
++
++## Puts the stored hotkey into the InputMap, where GlobInput looks for it.
++func apply_hotkey() -> void:
++	if InputMap.has_action(ACTION):
++		InputMap.action_erase_events(ACTION)
++	else:
++		InputMap.add_action(ACTION)
++	InputMap.action_add_event(ACTION, hotkey_to_event(get_hotkey()))
++
++
++# --- Tray icon ---------------------------------------------------------------
++
++func _setup_tray() -> void:
++	if not DisplayServer.has_feature(DisplayServer.FEATURE_STATUS_INDICATOR):
++		return
++	_tray = StatusIndicator.new()
++	_tray.icon = load("res://PicklesSurprised.png")
++	_tray.pressed.connect(_on_tray_pressed)
++	add_child(_tray)
++	_tray_available = true
++	_update_tray()
++
++
++func _on_tray_pressed(_mouse_button: int, _mouse_position: Vector2i) -> void:
++	toggle()
++
++
++func _update_tray() -> void:
++	if _tray == null:
++		return
++	var state := "ON" if enabled else "OFF"
++	_tray.tooltip = "PNGTube-Remix | %s: %s" % [tr("TR_CLICK_THROUGH"), state]
+diff --git a/Scripts/AutoLoads/overlay_mode.gd.uid b/Scripts/AutoLoads/overlay_mode.gd.uid
+new file mode 100644
+index 0000000..1658e97
+--- /dev/null
++++ b/Scripts/AutoLoads/overlay_mode.gd.uid
+@@ -0,0 +1 @@
++uid://06boxrmg4qdg
+diff --git a/Scripts/UI/StreamUI/s_top_ui_scripts.gd b/Scripts/UI/StreamUI/s_top_ui_scripts.gd
+index d52a66d..e341416 100644
+--- a/Scripts/UI/StreamUI/s_top_ui_scripts.gd
++++ b/Scripts/UI/StreamUI/s_top_ui_scripts.gd
+@@ -8,6 +8,7 @@ func _ready() -> void:
+ 	%ModeButton.get_popup().connect("id_pressed",choosing_mode)
+ 	%BGButton.get_popup().connect("id_pressed",choosing_bg_color)
+ 	%WindowButton.get_popup().connect("id_pressed",choosing_window)
++	OverlayMode.click_through_changed.connect(_on_click_through_changed)
+ 	
+ 	await get_tree().physics_frame
+ 	choosing_mode(Settings.theme_settings.software_mode)
+@@ -82,6 +83,14 @@ func choosing_window(id):
+ 			Settings.set_always_on_top(%WindowButton.get_popup().is_item_checked(2))
+ 		3:
+ 			Settings.center_window()
++		4:
++			OverlayMode.toggle()
++
++func _on_click_through_changed(enabled: bool) -> void:
++	var menu: PopupMenu = %WindowButton.get_popup()
++	var idx: int = menu.get_item_index(4)
++	if idx != -1:
++		menu.set_item_checked(idx, enabled)
+ 
+ func _notification(what):
+ 	if not Global.is_editor:
+diff --git a/Scripts/UI/TopPanel/Components/click_through_hotkey_row.gd b/Scripts/UI/TopPanel/Components/click_through_hotkey_row.gd
+new file mode 100644
+index 0000000..3881588
+--- /dev/null
++++ b/Scripts/UI/TopPanel/Components/click_through_hotkey_row.gd
+@@ -0,0 +1,85 @@
++extends HBoxContainer
++## Settings row: shows the click-through hotkey, lets the user rebind or reset it.
++## Click the key button, then press the new combination. Escape cancels.
++
++var _capture: Button
++var _reset: Button
++
++
++func _ready() -> void:
++	_capture = Button.new()
++	_capture.toggle_mode = true
++	_capture.theme_type_variation = "RemapButton"
++	_capture.size_flags_horizontal = Control.SIZE_EXPAND_FILL
++	_capture.toggled.connect(_on_capture_toggled)
++	add_child(_capture)
++
++	_reset = Button.new()
++	_reset.pressed.connect(_on_reset_pressed)
++	add_child(_reset)
++
++	set_process_input(false)
++	_refresh()
++
++
++func _exit_tree() -> void:
++	# Never leave the global hotkey blocked if the settings window is closed mid-capture.
++	OverlayMode.capturing = false
++
++
++func _notification(what: int) -> void:
++	if what == NOTIFICATION_TRANSLATION_CHANGED and _capture != null:
++		_refresh()
++
++
++func _refresh() -> void:
++	_reset.text = tr("TR_CLICK_THROUGH_HOTKEY_RESET")
++	if _capture.button_pressed:
++		_capture.text = tr("TR_AWAITING_INPUT")
++	else:
++		_capture.text = OverlayMode.hotkey_text()
++
++
++func _on_capture_toggled(pressed: bool) -> void:
++	OverlayMode.capturing = pressed
++	set_process_input(pressed)
++	if pressed:
++		_capture.release_focus()
++	_refresh()
++
++
++func _on_reset_pressed() -> void:
++	_capture.button_pressed = false
++	OverlayMode.reset_hotkey()
++	_refresh()
++
++
++func _input(event: InputEvent) -> void:
++	var key_event := event as InputEventKey
++	if key_event == null or not key_event.pressed or key_event.echo:
++		return
++	get_viewport().set_input_as_handled()
++
++	var key := key_event.keycode
++	# Wait for the actual key, a modifier alone is not a hotkey.
++	if key == KEY_NONE or key == KEY_CTRL or key == KEY_ALT or key == KEY_SHIFT or key == KEY_META:
++		return
++
++	var has_modifier := key_event.ctrl_pressed or key_event.alt_pressed \
++			or key_event.shift_pressed or key_event.meta_pressed
++	if key == KEY_ESCAPE and not has_modifier:
++		_capture.button_pressed = false
++		return
++	# A plain letter or digit would toggle the mode while typing, require a modifier for those.
++	if not has_modifier and (key & KEY_SPECIAL) == 0:
++		_capture.text = tr("TR_CLICK_THROUGH_NEEDS_MODIFIER")
++		return
++
++	OverlayMode.set_hotkey({
++		"keycode": int(key),
++		"ctrl": key_event.ctrl_pressed,
++		"alt": key_event.alt_pressed,
++		"shift": key_event.shift_pressed,
++		"meta": key_event.meta_pressed,
++	})
++	_capture.button_pressed = false
+diff --git a/Scripts/UI/TopPanel/Components/click_through_hotkey_row.gd.uid b/Scripts/UI/TopPanel/Components/click_through_hotkey_row.gd.uid
+new file mode 100644
+index 0000000..f70749c
+--- /dev/null
++++ b/Scripts/UI/TopPanel/Components/click_through_hotkey_row.gd.uid
+@@ -0,0 +1 @@
++uid://ck2mqs3bgltu8
+diff --git a/Scripts/UI/TopPanel/TopBarInput.gd b/Scripts/UI/TopPanel/TopBarInput.gd
+index 2a66fef..dc14df3 100644
+--- a/Scripts/UI/TopPanel/TopBarInput.gd
++++ b/Scripts/UI/TopPanel/TopBarInput.gd
+@@ -26,6 +26,7 @@ const WindowMenuId := {
+ 	ALWAYS_ON_TOP = 2,
+ 	CENTER_WINDOW = 3,
+ 	RESET_WINDOW = 8,
++	CLICK_THROUGH = 9,
+ 	ADD_WINDOW = 4,
+ 	MINI_VIEW = 5,
+ 	SPRITE_VIEW = 6,
+@@ -54,6 +55,7 @@ func _ready() -> void:
+ 	_setup_grid()
+ 	about_button.get_popup().id_pressed.connect(_on_about_id_pressed)
+ 	window_button.get_popup().id_pressed.connect(_on_window_id_pressed)
++	OverlayMode.click_through_changed.connect(_on_click_through_changed)
+ 
+ 	Global.mode_changed.connect(_on_mode_changed)
+ 	Global.theme_update.connect(_on_grid_theme_update)
+@@ -154,6 +156,15 @@ func _on_window_id_pressed(id: int) -> void:
+ 			Settings.window_size_changed()
+ 		WindowMenuId.EDIT_WINDOWS:
+ 			Global.edit_windows.emit()
++		WindowMenuId.CLICK_THROUGH:
++			OverlayMode.toggle()
++
++
++func _on_click_through_changed(enabled: bool) -> void:
++	var menu: PopupMenu = window_button.get_popup()
++	var idx: int = menu.get_item_index(WindowMenuId.CLICK_THROUGH)
++	if idx != -1:
++		menu.set_item_checked(idx, enabled)
+ 
+ 
+ func _on_files_id_pressed(id: int) -> void:
+diff --git a/UI/EditorUI/TopUI/Components/Settings_popup.tscn b/UI/EditorUI/TopUI/Components/Settings_popup.tscn
+index e030b6e..e169491 100644
+--- a/UI/EditorUI/TopUI/Components/Settings_popup.tscn
++++ b/UI/EditorUI/TopUI/Components/Settings_popup.tscn
+@@ -6,6 +6,7 @@
+ [ext_resource type="Script" uid="uid://caf875hofgogu" path="res://Scripts/UI/FormattedLocalizedLabel.gd" id="3_s0wg0"]
+ [ext_resource type="Texture2D" uid="uid://x1nc07bigmj1" path="res://UI/Assets/ZoomResetButton.png" id="4_fsnh4"]
+ [ext_resource type="Texture2D" uid="uid://byc1nc0xfubaq" path="res://TutorialAssets/Pickles/pickle1.png" id="6_qasrd"]
++[ext_resource type="Script" path="res://Scripts/UI/TopPanel/Components/click_through_hotkey_row.gd" id="7_ctrow"]
+ 
+ [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_6iakd"]
+ 
+@@ -492,6 +493,19 @@ popup/item_1/id = 1
+ popup/item_2/text = "Dummy"
+ popup/item_2/id = 2
+ 
++[node name="ClickThroughLabel" type="Label" parent="SettingVbox/SettingsTab/Remix/VBox/Grid"]
++layout_mode = 2
++size_flags_horizontal = 3
++size_flags_vertical = 1
++tooltip_text = "TR_CLICK_THROUGH_HOTKEY_TOOLTIP"
++mouse_filter = 0
++text = "TR_CLICK_THROUGH_HOTKEY"
++
++[node name="ClickThroughHotkey" type="HBoxContainer" parent="SettingVbox/SettingsTab/Remix/VBox/Grid"]
++layout_mode = 2
++size_flags_horizontal = 3
++script = ExtResource("7_ctrow")
++
+ [node name="Sp3" type="HSeparator" parent="SettingVbox/SettingsTab/Remix/VBox" unique_id=1262964452]
+ layout_mode = 2
+ theme_override_constants/separation = 5
+diff --git a/UI/EditorUI/TopUI/top_ui.tscn b/UI/EditorUI/TopUI/top_ui.tscn
+index ffd4326..307bd57 100644
+--- a/UI/EditorUI/TopUI/top_ui.tscn
++++ b/UI/EditorUI/TopUI/top_ui.tscn
+@@ -211,7 +211,7 @@ layout_mode = 2
+ size_flags_horizontal = 4
+ theme_override_font_sizes/font_size = 14
+ text = "TR_WINDOW"
+-item_count = 9
++item_count = 10
+ popup/item_0/text = "TR_TOGGLE_BORDERS"
+ popup/item_0/id = 0
+ popup/item_1/text = "TR_SAVE_WINDOW_POSITIONS"
+@@ -237,6 +237,9 @@ popup/item_8/text = "TR_BOTTOM_BAR"
+ popup/item_8/checkable = 1
+ popup/item_8/checked = true
+ popup/item_8/id = 7
++popup/item_9/text = "TR_CLICK_THROUGH"
++popup/item_9/checkable = 1
++popup/item_9/id = 9
+ 
+ [node name="AboutButton" type="MenuButton" parent="TopBar/HBox" unique_id=1689104778]
+ unique_name_in_owner = true
+diff --git a/UI/StreamUI/StreamTopUI.tscn b/UI/StreamUI/StreamTopUI.tscn
+index 441a121..4f5f9fb 100644
+--- a/UI/StreamUI/StreamTopUI.tscn
++++ b/UI/StreamUI/StreamTopUI.tscn
+@@ -87,7 +87,7 @@ size_flags_horizontal = 4
+ theme_override_colors/font_pressed_color = Color(0, 0, 0, 1)
+ theme_override_font_sizes/font_size = 14
+ text = "TR_WINDOW"
+-item_count = 4
++item_count = 5
+ popup/item_0/text = "TR_TOGGLE_BORDERS"
+ popup/item_0/id = 0
+ popup/item_1/text = "TR_SAVE_WINDOW_POSITIONS"
+@@ -97,6 +97,9 @@ popup/item_2/checkable = 1
+ popup/item_2/id = 2
+ popup/item_3/text = "TR_CENTER_WINDOW"
+ popup/item_3/id = 3
++popup/item_4/text = "TR_CLICK_THROUGH"
++popup/item_4/checkable = 1
++popup/item_4/id = 4
+ 
+ [node name="WindowSize" type="Label" parent="TopButtons" unique_id=1991038856]
+ unique_name_in_owner = true
+diff --git a/project.godot b/project.godot
+index 69bccd8..8035f30 100644
+--- a/project.godot
++++ b/project.godot
+@@ -45,6 +45,7 @@ GlobInput="*res://Scripts/AutoLoads/global_input.tscn"
+ CommandLine="*uid://bb316uj87yar8"
+ Tracker="*res://Scripts/Trackings/TrackingBackend.gd"
+ LanguageManager="*uid://htrtywrh8c4v"
++OverlayMode="*res://Scripts/AutoLoads/overlay_mode.gd"
+ 
+ [debug]
+ 
